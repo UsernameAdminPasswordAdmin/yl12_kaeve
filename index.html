@@ -31,16 +31,29 @@
   </style>
 </head>
 <body>
-
+<div>
+  <a href="index2.html">
+    <button style="
+    border: solid 1px;
+    border-radius: 30px;
+    padding: 15px;
+    font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    font-size: 20px;
+    background-color: gray;
+    color: white;
+    cursor: pointer;">
+      Mine teisele lehele
+    </button>
+  </a>
+</div>
 <div id="chart">
   <h1>Arc diagramm: 24.12.2024 energiatarbimise mustrid</h1>
 </div>
 
 <div id="mini-chart">
   <h1>24 tunni tarbimine – kõik andmestikud</h1>
-  <svg width="500" height="300"></svg>
+  <svg width="800" height="500"></svg>
 </div>
-
 <script>
   // Arc diagramm
   Promise.all([
@@ -130,14 +143,14 @@
       });
   });
 
+  // Mini line chart
   d3.csv("data/d3_consumption.csv", d3.autoType).then(data => {
-    // TEISENDA Date stringid Date objektideks
     data.forEach(d => d.Date = new Date(d.Date));
 
     const svg = d3.select("#mini-chart svg");
     const width = +svg.attr("width");
     const height = +svg.attr("height");
-    const margin = {top: 30, right: 20, bottom: 30, left: 50};
+    const margin = {top: 40, right: 20, bottom: 40, left: 60};
 
     const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
     const chartWidth = width - margin.left - margin.right;
@@ -148,10 +161,14 @@
       .range([0, chartWidth]);
 
     const y = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.Value)]).nice()
+      .domain([0, d3.max(data, d => d.Value) * 0.8]).nice()
       .range([chartHeight, 0]);
 
-    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    const clusterColor = d3.scaleOrdinal(d3.schemeCategory10);
+    const getCluster = symbol => {
+      const match = symbol.match(/(\d+)/);
+      return match ? Math.floor(+match[1] % 10) : symbol;
+    };
 
     const line = d3.line()
       .x(d => x(d.Date.getHours()))
@@ -170,12 +187,10 @@
       .data(grouped)
       .join("path")
       .attr("fill", "none")
-      .attr("stroke", ([symbol]) => color(symbol))
+      .attr("stroke", ([symbol]) => clusterColor(getCluster(symbol)))
       .attr("stroke-width", 1.5)
       .attr("d", ([, values]) => line(values));
   });
-
-
 </script>
 
 </body>

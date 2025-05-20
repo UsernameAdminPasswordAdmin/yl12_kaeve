@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <title>Energiatarbimise heatmap</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    .cell { stroke: #ccc; stroke-width: 0.5px; }
+    .axis text { font-size: 11px; }
+    svg { width: auto; height: auto; }
+  </style>
+</head>
+<body>
+  <div>
+    <a href="index.html">
+      <button style="
+      border: solid 1px;
+      border-radius: 30px;
+      padding: 15px;
+      font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva,    Verdana, sans-serif;
+      font-size: 20px;
+      background-color: gray;
+      color: white;
+      cursor: pointer;
+
+      ">Mine esimisele lehele</button>
+    </a>
+  </div>
+  <div>
+    <h2>100 päeva energiatarbimine – heatmap (sarnased päevad lähestikku)</h2>
+    <svg id="heatmap" width="1200" height="1800"></svg>
+  </div>
+
+<script>
+d3.json("data/heatmap_data.json").then(data => {
+  const svg = d3.select("#heatmap");
+  const margin = {top: 80, right: 20, bottom: 60, left: 130};
+  const width = +svg.attr("width") - margin.left - margin.right;
+  const height = +svg.attr("height") - margin.top - margin.bottom;
+
+  const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+  const numRows = data.days.length;
+  const numCols = 24;
+
+  const cellWidth = 40;
+  const cellHeight = 16;
+
+  const color = d3.scaleSequential(d3.interpolateInferno)
+    .domain([d3.max(data.matrix.flat()), d3.min(data.matrix.flat())]); // reversed scale
+
+  // Päevade nimed (y-axis)
+  g.selectAll(".row-label")
+    .data(data.days)
+    .join("text")
+    .attr("x", -10)
+    .attr("y", (_, i) => i * cellHeight + cellHeight / 2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", "end")
+    .style("font-size", "12px")
+    .text(d => {
+      const parts = d.match(/(\d{4}-\d{2}-\d{2})/);
+      return parts ? parts[1] : d;
+    });
+
+  // Tunnid (x-axis)
+  g.selectAll(".col-label")
+    .data(d3.range(24))
+    .join("text")
+    .attr("x", d => d * cellWidth + cellWidth / 2)
+    .attr("y", -10)
+    .attr("text-anchor", "start")
+    .attr("transform", d => `rotate(-45, ${d * cellWidth + cellWidth / 2}, -10)`)
+    .style("font-size", "12px")
+    .text(d => `${String(d).padStart(2, '0')}:00`);
+
+  // Lahtrid
+  g.selectAll("g.row")
+    .data(data.matrix)
+    .join("g")
+    .attr("transform", (_, i) => `translate(0, ${i * cellHeight})`)
+    .selectAll("rect")
+    .data(row => row)
+    .join("rect")
+    .attr("x", (_, j) => j * cellWidth)
+    .attr("width", cellWidth)
+    .attr("height", cellHeight)
+    .attr("fill", d => color(d))
+    .attr("class", "cell")
+    .append("title")
+    .text(d => d.toFixed(2));
+});
+</script>
+
+</body>
+</html>
