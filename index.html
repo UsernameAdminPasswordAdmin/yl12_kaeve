@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <title>Andmestike visuaal</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      gap: 40px;
+      margin: 30px;
+    }
+    #chart, #mini-chart {
+      flex: 1;
+      max-width: 50%;
+    }
+    svg {
+      width: 100%;
+      height: auto;
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .hover text { fill: #aaa; }
+    .hover g.primary text { font-weight: bold; fill: #333; }
+    .hover g.secondary text { fill: #333; }
+    .hover path { stroke: #ccc; }
+    .hover path.primary { stroke: #333; }
+  </style>
+</head>
+<body>
+
+<div id="chart">
+  <h1>Arc diagramm: 24.12.2024 energiatarbimise mustrid</h1>
+</div>
+
+<div id="mini-chart">
+  <h1>24 tunni tarbimine – kõik andmestikud</h1>
+  <svg width="500" height="300"></svg>
+</div>
+
+<script>
+  // Arc diagramm
+  Promise.all([
+    fetch('data/arc_nodes.json').then(r => r.json()),
+    fetch('data/arc_links.json').then(r => r.json())
+  ]).then(([nodes, links]) => {
+    const width = 800;
+    const step = 14;
+    const marginTop = 20;
+    const marginRight = 20;
+    const marginBottom = 20;
+    const marginLeft = 130;
+    const height = (nodes.length - 1) * step + marginTop + marginBottom;
+
+    const y = d3.scalePoint()
+      .domain(nodes.map(d => d.id))
+      .range([marginTop, height - marginBottom]);
+
+    const groups = new Map(nodes.map(d => [d.id, d.group]));
+    const color = d3.scaleOrdinal(d3.schemeCategory10)
+      .domain([...groups.values()].sort());
+
+    function samegroup({ source, target }) {
+      return groups.get(source) === groups.get(target) ? groups.get(source) : null;
+    }
+
+    const Y = new Map(nodes.map(d => [d.id, y(d.id)]));
+    const svg = d3.select("#chart").append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    function arc(d) {
+      const y1 = Y.get(d.source);
+      const y2 = Y.get(d.target);
+      const r = Math.abs(y2 - y1) / 2;
+      return `M${marginLeft},${y1}A${r},${r} 0,0,${y1 < y2 ? 1 : 0} ${marginLeft},${y2}`;
+    }
+
+    const path = svg.append("g")
+      .attr("fill", "none")
+      .attr("stroke-opacity", 0.6)
+      .attr("stroke-width", 1.5)
+      .selectAll("path")
+      .data(links)
+      .join("path")
+      .attr("stroke", d => color(samegroup(d)))
+      .attr("d", arc);
+
+    const label = svg.append("g")
+      .attr("font-size", 10)
+      .attr("text-anchor", "end")
+      .selectAll("g")
+      .data(nodes)
+      .join("g")
+      .attr("transform", d => `translate(${marginLeft},${Y.get(d.id)})`);
+
+    label.append("text")
+      .attr("x", -6)
+      .attr("dy", "0.35em")
+      .text(d => d.id)
+      .attr("fill", d => d3.lab(color(groups.get(d.id))).darker(2));
+
+    label.append("circle")
+      .attr("r", 3)
+      .attr("fill", d => color(groups.get(d.id)));
+
+    label.append("rect")
+      .attr("fill", "none")
+      .attr("width", marginLeft + 40)
+      .attr("height", step)
+      .attr("x", -marginLeft)
+      .attr("y", -step / 2)
+      .attr("pointer-events", "all")
+      .on("pointerenter", (event, d) => {
+        svg.classed("hover", true);
+        label.classed("primary", n => n === d);
+        label.classed("secondary", n =>
+          links.some(({ source, target }) =>
+            n.id === source && d.id === target || n.id === target && d.id === source));
+        path.classed("primary", l => l.source === d.id || l.target === d.id).raise();
+      })
+      .on("pointerout", () => {
+        svg.classed("hover", false);
+        label.classed("primary", false);
+        label.classed("secondary", false);
+        path.classed("primary", false).order();
+      });
+  });
+
+  d3.csv("data/d3_consumption.csv", d3.autoType).then(data => {
+    // TEISENDA Date stringid Date objektideks
+    data.forEach(d => d.Date = new Date(d.Date));
+
+    const svg = d3.select("#mini-chart svg");
+    const width = +svg.attr("width");
+    const height = +svg.attr("height");
+    const margin = {top: 30, right: 20, bottom: 30, left: 50};
+
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    const chartWidth = width - margin.left - margin.right;
+    const chartHeight = height - margin.top - margin.bottom;
+
+    const x = d3.scaleLinear()
+      .domain([0, 23])
+      .range([0, chartWidth]);
+
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d.Value)]).nice()
+      .range([chartHeight, 0]);
+
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+    const line = d3.line()
+      .x(d => x(d.Date.getHours()))
+      .y(d => y(d.Value));
+
+    const grouped = d3.groups(data, d => d.Symbol);
+
+    g.append("g")
+      .attr("transform", `translate(0,${chartHeight})`)
+      .call(d3.axisBottom(x).ticks(24).tickFormat(d => `${d}:00`));
+
+    g.append("g")
+      .call(d3.axisLeft(y));
+
+    g.selectAll(".line")
+      .data(grouped)
+      .join("path")
+      .attr("fill", "none")
+      .attr("stroke", ([symbol]) => color(symbol))
+      .attr("stroke-width", 1.5)
+      .attr("d", ([, values]) => line(values));
+  });
+
+
+</script>
+
+</body>
+</html>
