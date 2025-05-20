@@ -8,11 +8,13 @@
     body {
       font-family: sans-serif;
       display: flex;
+      flex-direction: row;
       gap: 40px;
       margin: 30px;
     }
     #chart, #mini-chart {
       flex: 1;
+      flex-direction: column;
       max-width: 50%;
     }
     svg {
@@ -31,9 +33,11 @@
   </style>
 </head>
 <body>
-<div>
+<div style="
+  position:absolute;
+  ;">
   <a href="index2.html">
-    <button style="
+  <button style="
     border: solid 1px;
     border-radius: 30px;
     padding: 15px;
@@ -43,17 +47,25 @@
     color: white;
     cursor: pointer;">
       Mine teisele lehele
-    </button>
-  </a>
+    </button></a>
 </div>
-<div id="chart">
-  <h1>Arc diagramm: 24.12.2024 energiatarbimise mustrid</h1>
+<div style="
+  display: flex;
+  padding-top: 50px;">
+  <div id="chart">
+    <h1>Arc diagramm: 24.12.2024 - palju andmestikke </h1>
+  </div>
+
+  <div id="mini-chart">
+    <h1>24 tunni tarbimine – 24.12.2024 - palju andmestikke</h1>
+    <svg width="800" height="500"></svg>
+  </div>
+  <div id="legend">
+    <h1>Legend</h1>
+    <ul id="legend-list" style="list-style: none; padding-left: 0;"></ul>
+  </div>
 </div>
 
-<div id="mini-chart">
-  <h1>24 tunni tarbimine – kõik andmestikud</h1>
-  <svg width="800" height="500"></svg>
-</div>
 <script>
   // Arc diagramm
   Promise.all([
@@ -145,6 +157,7 @@
 
   // Mini line chart
   d3.csv("data/d3_consumption.csv", d3.autoType).then(data => {
+    const legendContainer = d3.select("#legend-list");
     data.forEach(d => d.Date = new Date(d.Date));
 
     const svg = d3.select("#mini-chart svg");
@@ -189,7 +202,16 @@
       .attr("fill", "none")
       .attr("stroke", ([symbol]) => clusterColor(getCluster(symbol)))
       .attr("stroke-width", 1.5)
-      .attr("d", ([, values]) => line(values));
+      .attr("d", ([, values]) => line(values))
+      .append("title")
+      .text(([symbol]) => symbol);
+
+    // Add legend items
+    grouped.forEach(([symbol]) => {
+      legendContainer.append("li")
+        .style("margin-bottom", "4px")
+        .html(`<span style='display:inline-block;width:12px;height:12px;background-color:${clusterColor(getCluster(symbol))};margin-right:8px;'></span>${symbol}`);
+    });
   });
 </script>
 
